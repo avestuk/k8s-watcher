@@ -1,0 +1,130 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "av-k8s-watcher-environment"
+  namespace: "default"
+  labels:
+    app: "av-k8s-watcher"
+data:
+  foo: bar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "av-k8s-watcher-parent-dir"
+  namespace: "default"
+  labels:
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: "av-k8s-watcher"
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: "av-k8s-watcher"
+        app.kubernetes.io/name: "av-k8s-watcher"
+        app.kubernetes.io/version: "v0.0.6"
+        app.kubernetes.io/component: "Public-API"
+        app.kubernetes.io/part-of: "av-k8s-watcher"
+    spec:
+      containers:
+        - image: k8s-watcher:latest
+          imagePullPolicy: IfNotPresent
+          name: "av-k8s-watcher"
+          command:
+            - /k8s-watcher
+          args:
+            - --fileToWatch=/watch-file/foo
+            - --watchParent=true
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+
+          volumeMounts:
+            - name: watchfile
+              mountPath: /watch-file
+          resources:
+            limits:
+              cpu: 0.4
+              ephemeral-storage: 1Gi
+              memory: 512M
+            requests:
+              cpu: 0.1
+              memory: 30M
+      volumes:
+        - name: watchfile
+          configMap:
+            name: av-k8s-watcher-environment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "av-k8s-watcher-direct-to-file"
+  namespace: "default"
+  labels:
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: "av-k8s-watcher"
+  strategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: "av-k8s-watcher"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: "av-k8s-watcher"
+        app.kubernetes.io/version: "v0.0.6"
+        app.kubernetes.io/component: "Public-API"
+        app.kubernetes.io/part-of: "av-k8s-watcher"
+    spec:
+      containers:
+        - image: k8s-watcher:latest
+          imagePullPolicy: IfNotPresent
+          name: "av-k8s-watcher"
+          command:
+            - /k8s-watcher
+          args:
+            - --fileToWatch=/watch-file/foo
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+
+          volumeMounts:
+            - name: watchfile
+              mountPath: /watch-file
+          resources:
+            limits:
+              cpu: 0.4
+              ephemeral-storage: 1Gi
+              memory: 512M
+            requests:
+              cpu: 0.1
+              memory: 30M
+      volumes:
+        - name: watchfile
+          configMap:
+            name: av-k8s-watcher-environment
